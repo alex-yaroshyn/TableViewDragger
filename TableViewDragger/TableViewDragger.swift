@@ -46,10 +46,17 @@ open class TableViewDragger: NSObject {
     open var cellShadowOpacity: Float = 0.4
     /// Velocity of auto scroll in drag.
     open var scrollVelocity: CGFloat = 1
+    /// Lock X axis of dragging or not
+    open var lockDraggingX: Bool = false
     open weak var delegate: TableViewDraggerDelegate?
     open weak var dataSource: TableViewDraggerDataSource?
     open var tableView: UITableView? {
         return targetTableView
+    }
+    open var longPressDuration: CFTimeInterval = 0.1 {
+        didSet {
+            longPressGesture.minimumPressDuration = longPressDuration
+        }
     }
     
     /// `UITableView` want to drag.
@@ -175,11 +182,16 @@ open class TableViewDragger: NSObject {
             actualCell?.isHidden = originCellHidden
             
             if let draggedCell = draggedCell(tableView, indexPath: dragIndexPath) {
-                let point = gesture.location(in: actualCell)
+                let point: CGPoint!
+                if lockDraggingX {
+                    point = CGPoint(x: (tableView.superview?.frame.size.width ?? 0) / 2, y: gesture.location(in: actualCell).y)
+                } else {
+                    point = gesture.location(in: actualCell)
+                }
                 draggedCell.offset = point
                 draggedCell.transformToPoint(point)
-                draggedCell.location = gesture.location(in: tableView)
-                tableView.addSubview(draggedCell)
+                draggedCell.location = CGPoint(x: (tableView.superview?.frame.size.width ?? 0)  / 2, y: gesture.location(in: tableView.superview).y)
+                tableView.superview?.addSubview(draggedCell)
                 
                 draggingCell = draggedCell
             }
@@ -196,7 +208,11 @@ open class TableViewDragger: NSObject {
             return
         }
         
-        draggingCell.location = gesture.location(in: tableView)
+        if lockDraggingX {
+            draggingCell.location = CGPoint(x: (tableView.superview?.frame.size.width ?? 0) / 2, y: gesture.location(in: tableView).y)
+        } else {
+            draggingCell.location = gesture.location(in: tableView.superview)
+        }
         
         if let motion = tableView.autoScrollMotion(draggingCell.absoluteCenterForScrollView(tableView)) {
             displayLink?.isPaused = false
@@ -322,3 +338,4 @@ extension UIScrollView {
         case down
     }
 }
+
